@@ -108,6 +108,37 @@ export async function prepareSessionEntryInWorker(
   absPath: string,
   options: SessionEntryWorkerInput["options"],
 ) {
+  const result = await readSessionEntryInWorker({
+    kind: "session-entry",
+    absPath,
+    options,
+  });
+  if (!("entry" in result)) {
+    throw new Error("Session transcript worker returned a snapshot instead of an export");
+  }
+  return result;
+}
+
+export async function readSessionEntrySnapshotInWorker(
+  absPath: string,
+  options: SessionEntryWorkerInput["options"],
+  includeOriginalMessages: boolean,
+) {
+  const result = await readSessionEntryInWorker({
+    kind: "session-entry",
+    mode: "snapshot",
+    includeOriginalMessages,
+    absPath,
+    options,
+  });
+  if (!("snapshot" in result)) {
+    throw new Error("Session transcript worker returned an export instead of a snapshot");
+  }
+  return result.snapshot;
+}
+
+async function readSessionEntryInWorker(input: SessionEntryWorkerInput) {
+  const { absPath, options } = input;
   const receipt = resolveSessionTranscriptReadFence(options);
   const result = unwrapSessionTranscriptWorkerReply<"session-entry" | "session-reset-recall">(
     await runWithSqliteDatabaseAdmissionTurn(
@@ -115,9 +146,7 @@ export async function prepareSessionEntryInWorker(
       () =>
         sessionEntries.run(
           {
-            kind: "session-entry",
-            absPath,
-            options,
+            ...input,
             ...(receipt ? { admission: { ...receipt } } : {}),
           },
           {
@@ -132,7 +161,7 @@ export async function prepareSessionEntryInWorker(
         ),
     ),
   );
-  if (!("entry" in result)) {
+  if (!("entry" in result) && !("snapshot" in result)) {
     throw new Error("Session transcript worker returned reset metadata instead of an export");
   }
   return result;

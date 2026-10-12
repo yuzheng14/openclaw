@@ -34,6 +34,11 @@ validates the complete candidate and current caller authority before granting
 COMMIT, then publishes only a confirmed native receipt. FIFO ordering, durability,
 schemas, stored formats, and update behavior are unchanged.
 
+Durable heartbeat outcome claims check the current row in their existing worker FIFO.
+Missing outcomes and already committed claims for the same run return without
+another write. New claims keep their atomic conditional update and live commit
+authority check; retries retain the original claim timestamp.
+
 Runtime database access belongs in workers. The Gateway main thread owns live
 projections, caches, and caller authority; it awaits prepared facts and installs
 committed results. Synchronous boot admission, migrations, Doctor/CLI one-shots,
@@ -448,6 +453,21 @@ recap requests read freshness through the history worker and revalidate access
 before returning the result. The unused synchronous message-by-event-ID accessor
 has been removed; transaction owners retain their existing message lookup kernel.
 
+Memory ingestion awaits `statSessionEntry`, which reuses supplied statistics or
+reads metadata through the existing history worker. Transcript export observers
+and explicit parse-yield callers obtain a snapshot through that worker before
+host-side parsing and callbacks. Full messages cross the worker boundary only
+when the observer needs them; other exports retain their SQL-side projection.
+`statSessionEntrySync` remains deprecated SDK compatibility and warns when it
+performs a host SQLite read.
+
+Bundled run-start callbacks use `onPreparedAgentRunStart` and its required
+transcript facts, prepared asynchronously by the runtime. The released
+`onAgentRunStart` callback remains deprecated and supported; only a legacy
+producer that omits those facts enters the named synchronous watermark adapter.
+Its retirement requires the next Plugin SDK major and explicit breaking-release
+approval. CLI history retains its current final cross-account disclosure guard.
+
 The session S–Z inventory still includes shared native kernels. They must not be
 marked worker-only merely because their ordinary durable callers use workers:
 
@@ -771,7 +791,7 @@ opening a separate reader or read transaction. Both paths retain the same profil
 revocation binding; display and alias consumers retain the full profile projection.
 Personal connection reads and maintenance listings use that same shared-state
 worker without creating absent databases; received credentials are registered
-with the host's secret redaction owner.
+with the host's diagnostic redaction owner.
 Publication receipt reads, lists, branch projections, and recovery lookups also
 use the existing shared-state worker without creating absent databases. Branch
 head and unsettled status derive from one result set; reads add no source
@@ -2254,7 +2274,7 @@ unchanged, and no T1 sites are retired. P5c adds Memory and Codex history adapte
 Memory entry projection and reset-recall reads can use the captured actor's
 existing history FIFO. The actor selects Memory input records or reset navigation
 inside a synchronous snapshot. Memory keeps its existing text, provenance,
-redaction, and reset-cutoff projection; the caller never reopens the sentinel.
+and reset-cutoff projection; the caller never reopens the sentinel.
 
 The bundled Codex plugin accepts an owner-bound asynchronous context reader
 through its existing SDK subpath. Actor reads require a complete captured session
@@ -5750,7 +5770,7 @@ commit; failed refresh never invites replay of a saved answer. The released
 synchronous question SDK methods retain their contracts. Exact values and coherent
 exec-environment snapshots use bounded commands in that same read worker. The host
 captures the physical store before yielding, registers returned secrets with its
-redaction owner, and seals exec sentinels with its process-local key. Each exec
+diagnostic redaction owner, and seals exec sentinels with its process-local key. Each exec
 call rechecks its existing source authority after awaiting the run's shared
 snapshot; generic SecretRef callers retain their current activation guards.
 Hidden GitHub operations and the CLI allowed-host setter remain with their existing
@@ -6001,3 +6021,11 @@ committed timestamp without a follow-up read. Generic synchronous machine-state
 APIs retain other callers pending their owner-level cutover; these changes do not
 classify those callers as worker-only. Schemas, retention, stored bytes, and
 update behavior are unchanged.
+
+### Anchor read watermark facts
+
+An anchor read that already requires the current transcript projection returns its
+watermark from that same projection snapshot. It does not issue a separate retained
+watermark query. Standalone watermark reads and the early context-authority check
+keep their existing database readers. Schema, stored bytes, retention, permissions,
+and update behavior are unchanged.

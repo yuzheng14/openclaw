@@ -182,7 +182,7 @@ export type SessionResetRecallWorkerInput = {
   admission?: UserTurnTranscriptAdmissionReceipt;
 };
 
-export type SessionEntryWorkerInput = {
+type SessionEntryWorkerRequest = {
   kind: "session-entry";
   absPath: string;
   options: Omit<BuildSessionEntryOptions, "onTranscriptMessage" | "parseYieldEveryLines"> & {
@@ -192,3 +192,6 @@ export type SessionEntryWorkerInput = {
   };
   admission?: UserTurnTranscriptAdmissionReceipt;
 };
+
+export type SessionEntryWorkerInput = SessionEntryWorkerRequest &
+  ({ mode?: "entry" } | { mode: "snapshot"; includeOriginalMessages: boolean });
